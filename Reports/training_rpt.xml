@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<dataTemplate dataSourceRef="kenolive" name="aassured" defaultPackage="gin_premium_trans">
+<properties>
+<property name="xml_tag_case" value="upper"/>
+</properties>
+<parameters>
+<parameter name="FROMDT" dataType="date"/>
+<parameter name="TODT" dataType="date"/>
+</parameters>
+<lexicals></lexicals>
+<dataQuery>
+<sqlStatement name="Q_1">
+<![CDATA[
+        SELECT ORG_NAME NAME, 
+        ORG_ADDRS||' - '||ORG_ZIP||', '||TWN_NAME||', '||COU_NAME POSTAL_ADD, 
+        ORG_PHY_ADDRS PHYSICAL_ADD, 
+        ORG_TEL1 PHONE, ORG_FAX FAX, 
+        LOWER(ORG_EMAIL_ADDRS) EMAIL, ORG_WEB_ADDRS
+        FROM TQC_ORGANIZATIONS, TQC_TOWNS, TQC_COUNTRIES
+        WHERE ORG_TWN_CODE = TWN_CODE
+        AND ORG_COU_CODE = COU_CODE
+        AND ORG_CODE = 2
+]]>
+</sqlStatement>
+
+
+<sqlStatement name="Q_2">
+<![CDATA[
+       SELECT QUOT_NO, QUOT_AGNT_AGENT_CODE, QUOT_DATE
+        FROM GIN_QUOTATIONS WHERE QUOT_DATE BETWEEN :FROMDT AND :TODT
+         FETCH FIRST 10 ROWS ONLY
+]]>
+</sqlStatement>
+
+</dataQuery>
+<dataStructure>
+<group name="G_ORGANIZATION" dataType="varchar2" source="Q_1">
+    <element name="POSTAL_ADD" dataType="varchar2" value="POSTAL_ADD"/>
+    <element name="PHONE" dataType="varchar2" value="PHONE"/>
+    <element name="ORGANIZATION1" dataType="varchar2" value="NAME"/>
+    <element name="ORG_PHY_ADDRS" dataType="varchar2" value="PHYSICAL_ADD"/>
+    <element name="Fax" dataType="varchar2" value="FAX"/>
+    <element name="EMAIL" dataType="varchar2" value="EMAIL"/>
+    <element name="WEBSITE" dataType="varchar2" value="ORG_WEB_ADDRS"/>
+		<group name="G_QUOTE_INFO" dataType="varchar2" source="Q_2">
+			<element name="QUOT_AGNT_AGENT_CODE" dataType="varchar2" value="QUOT_AGNT_AGENT_CODE"/>
+			<element name="QUOT_NO" dataType="varchar2" value="QUOT_NO"/>
+			<element name="QUOT_DATE" dataType="varchar2" value="QUOT_DATE"/>
+	 </group>
+ </group>
+ 
+
+ 
+
+</dataStructure>
+</dataTemplate>

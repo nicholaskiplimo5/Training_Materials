@@ -1,0 +1,241 @@
+TURNQUEST REPORTS
+
+System Reports means the unaudited, internal, monthly reports showing revenues and expenses for the Business.
+
+Transaction Report: A detailed record of a transaction that has taken place e.g. a Debit Note
+
+ALL YOU NEED TO KNOW ON REPORTS;
+
+TQC_SYSTEM_REPORTS   - This stores the Report xml file information and the primary key here is RPT_CODE.
+TQC_SYS_RPT_TEMPLATES - This stores the report rtf files, and is linked to TQC_SYSTEM_REPORTS by RPT_TMPL_RPT_CODE.
+TQC_SYS_RPT_PARAMETERS- This stores all reported parameters and is linked to TQC_SYSTEM_REPORTS by RPTP_RPT_CODE.
+TQC_SYS_RPT_SUB_MODULES- Primary Key here is RSM_CODE and it's linked to TQC_SYSTEM_REPORTS by RPT_RSM_CODE.E - Defines where the report should be, i.e from below image
+
+
+Select * from TQC_SYSTEM_REPORTS;
+Select * from TQC_SYS_RPT_TEMPLATES;
+Select * from TQC_SYS_RPT_PARAMETERS;
+Select * from TQC_SYS_RPT_SUB_MODULES;
+
+STRUCTURE OF XML
+
+An Oracle BI Publisher Data Template follows a strict, standard XML syntax required by the Oracle E-Business Suite / BI Publisher engine.
+
+Here is the general structural syntax and layout of a standard BI Publisher Data Template (.xml):
+
+<?xml version="1.0" encoding="UTF-8" ?>
+<dataTemplate name="TemplateName" dataSourceRef="DatabaseRef" defaultPackage="PLSQL_PACKAGE_NAME">
+    
+    <properties>
+        <property name="include_parameters" value="true/false"/>
+        <property name="xml_tag_case" value="upper/lower/as_is"/>
+    </properties>
+
+    <parameters>
+        <parameter name="P_PARAM_NAME_1" dataType="character/number/date"/>
+        <parameter name="P_PARAM_NAME_2" dataType="integer" defaultValue="10"/>
+    </parameters>
+
+    <lexicals>
+        <lexical type="oracle.apps.bom.structure.Query" name="P_LEX_WHERE" comment="Dynamic where clause"/>
+    </lexicals>
+
+    <dataQuery>
+        <sqlStatement name="Q_PARENT">
+            <![CDATA[
+                SELECT parent_id,
+                       parent_name,
+                       parent_date
+                FROM parent_table
+                WHERE parent_id = :P_PARAM_NAME_1
+            ]]>
+        </sqlStatement>
+        
+        <sqlStatement name="Q_CHILD">
+            <![CDATA[
+                SELECT child_id,
+                       fk_parent_id,
+                       child_name,
+                       child_amount
+                FROM child_table
+                WHERE fk_parent_id = :parent_id
+            ]]>
+        </sqlStatement>
+    </dataQuery>
+
+    <dataStructure>
+        <group name="G_PARENT_ROOT" source="Q_PARENT">
+            <element name="XML_TAG_ID" dataType="number" value="PARENT_ID"/>
+            <element name="XML_TAG_NAME" dataType="varchar2" value="PARENT_NAME"/>
+            <element name="XML_TAG_DATE" dataType="date" value="PARENT_DATE"/>
+            
+            <group name="G_CHILD_ROWS" source="Q_CHILD">
+                <element name="CHILD_ID" dataType="number" value="CHILD_ID"/>
+                <element name="CHILD_NAME" dataType="varchar2" value="CHILD_NAME"/>
+                <element name="TOTAL_AMOUNT" function="sum" dataType="number" value="CHILD_AMOUNT"/>
+            </group>
+            
+        </group>
+    </dataStructure>
+    
+</dataTemplate>
+
+Core Syntax Breakdown
+<dataTemplate>: The mandatory root tag.
+
+name: The name of your template.
+
+dataSourceRef: The JNDI data source name connecting to your database.
+
+defaultPackage: (Optional) The database PL/SQL package containing any formula functions or initialization functions called by the template.
+
+<parameters>: Binds inputs. Parameters are referenced inside the <dataQuery> SQL statements using a colon prefix (e.g., :P_PARAM_NAME_1).
+
+<dataQuery>: Houses your SQL statements. Columns selected here must match the value attributes defined later in the structural mapping.
+
+<![CDATA[ ... ]]>: Crucial syntax wrapper. It tells the XML parser to ignore database operations like less-than (<), greater-than (>), or ampersand (&) signs inside your queries, preventing parsing errors.
+
+<dataStructure>: Defines the hierarchy of your final XML document.
+
+<group>: Represents a repeating row/record loop. The source attribute binds it to a specific sqlStatement.
+
+<element>: Represents an individual node/field. The name attribute defines what the XML tag will be called, and the value attribute points to the exact database column name returned by the query.
+
+
+RTF TEMPLATE 
+An Oracle BI Publisher (formerly XML Publisher) RTF Template acts as the visual layout blueprint for generating dynamic documents (like PDFs, HTML, or Word files) from raw XML data data sources.Instead of writing complex code to build document structures, you design the entire layout visually using Microsoft Word (with the BI Publisher Add-in). The syntax engine relies on standard XSL (Extensible Stylesheet Language) concepts, which are embedded directly into Word form fields or text blocks.Here is a general overview of the core syntax syntax, structures, and rules used to build an RTF template:1. Simple Data Mapping (Placeholders)To pull a single field from your XML data source and display it, you use simple tag placeholders.General Syntax: <?XML_TAG_NAME?>Example: <?CLIENT_NAME?> or <?POLICY_NUMBER?>How it works: When the report runs, BI Publisher replaces this exact token with the value found inside that tag in the XML file.2. Repeating Loops (Tables and Lists)When dealing with datasets that have multiple rows—such as a list of vehicles, items, or line items—you use a for-each loop to instruct the document to dynamically clone layout sections or table rows.General Syntax: ```text... data placeholders or table rows go here ...Context rules: * Any element placed inside the for-each loop must be a child element of that specific group in your XML structure.If used inside a Microsoft Word table, the for-each tag is typically placed in the very first cell of the data row, and the end for-each tag is placed in the last cell of that same row. The layout engine will automatically generate a new row for every record found.3. Conditional Logic (If Statements)Conditional tags allow you to hide or display sections, sentences, or tables depending on the data values present in the XML.General Syntax:Plaintext<?if:CONDITION?>
+   ... Text or fields shown only if condition is true ...
+<?end if?>
+Examples:<?if:MOTOR='Y'?> $\rightarrow$ Displays a specific sentence only if the policy is for a motor vehicle.<?if:PREMIUM > 0?> $\rightarrow$ Displays a financial row only if there is a charge.If-Then-Else Syntax:Plaintext<?choose:?>
+   <?when:CONDITION_1?> ... show this ... <?end when?>
+   <?when:CONDITION_2?> ... show that ... <?end when?>
+   <?otherwise:?> ... default fallback text ... <?end otherwise?>
+<?end choose?>
+4. Basic Calculations & Summary FunctionsRTF templates can perform mathematical computations on the fly so you don't always have to rely on the database query for simple totals.Summing columns: <?sum(ELEMENT_NAME)?> (e.g., <?sum(PREMIUM_AMOUNT)?> to get a table total)Counting records: <?count(ELEMENT_NAME)?>Basic Math: <?FIELD_A + FIELD_B?> or <?AMOUNT * 0.16?> (for calculating flat-rate tax elements in the layout)5. Formatting VariablesNumbers/Currency: To ensure numbers look like clean financial metrics (e.g., turning 15000 into 15,000.00), you use format masks:Plaintext<?format-number:ELEMENT_NAME; '999,999,999.00'?>
+Dates: To format system timestamps into human-readable document text:Plaintext<?format-date:ELEMENT_NAME; 'DD-MON-YYYY'?>
+Summary of How the Engine Processes the RTFWhen a report is generated, Oracle BI Publisher executes a three-step merge process:XML Generation: The database executes its SQL templates and constructs a raw XML hierarchical tree.Layout Parsing: The engine reads the RTF document, translating the MS Word tables and text into XSL-FO (Formatting Objects) language.Merging: The data tree fills the placeholders, evaluates the loops, tests the conditions, and compiles everything into the final output format (such as an immutable PDF invoice or renewal notice).
+
+BEHIND THE SCENE
+
+public String RunReport(BigDecimal rptCode) {
+    XMLPublisher xmlPublisher = new XMLPublisher();
+    String templateFile = null;
+    String styleFile = null;
+    String reportName = null;
+    String dataFile = null;
+    String printSrvAppl = null;
+    byte[] bytes = null;
+    String reportFormat = null;
+    
+    if (this.repFormat != null)
+        reportFormat = GlobalCC.checkNullValues(this.repFormat.getValue());
+    if (reportFormat == null)
+        reportFormat = (String) this.session.getAttribute("reportformatprint");
+        
+    DBConnector datahandler = DBConnector.getInstance();
+    OracleConnection oracleConnection = datahandler.getDatabaseConnection();
+    CallableStatement cst = null;
+    String jobquery = "begin ? := tqc_web_cursor.getrptdetail(?); end;";
+    ResultSet rs = null;
+    
+    // Additional parameters cursor statement
+    PreparedStatement paramPst = null;
+    ResultSet paramRs = null;
+    
+    try {
+        cst = oracleConnection.prepareCall(jobquery);
+        cst.registerOutParameter(1, -10);
+        cst.setBigDecimal(2, rptCode);
+        cst.executeQuery();
+        rs = (ResultSet) cst.getObject(1);
+        while (rs.next()) {
+            templateFile = rs.getString(5);
+            styleFile = rs.getString(7);
+            reportName = rs.getString(2);
+            dataFile = rs.getString(3);
+            printSrvAppl = rs.getString(8);
+        }
+        this.session.setAttribute("printSrvAppl", printSrvAppl);
+        
+        if (dataFile == null)
+            throw new Exception("The Report is not Registered in the System");
+
+        // =====================================================================
+        // ADDED: DYNAMIC PARAMETER TRAINING BLOCK
+        // This links the metadata from TQC_SYS_RPT_PARAMETERS to the session 
+        // =====================================================================
+        String paramQuery = "SELECT rptp_name FROM tqc_sys_rpt_parameters WHERE rptp_rpt_code = ?";
+        paramPst = oracleConnection.prepareStatement(paramQuery);
+        paramPst.setBigDecimal(1, rptCode);
+        paramRs = paramPst.executeQuery();
+        
+        while (paramRs.next()) {
+            String paramName = paramRs.getString("rptp_name");
+            // Check if the current component bean or view state holds a value for this param
+            Object paramValue = this.getViewParameterValue(paramName); 
+            
+            if (paramValue != null) {
+                // BI Publisher looks for colon tokens (:PARAM) by checking session attributes
+                this.session.setAttribute(paramName, paramValue);
+            }
+        }
+        // =====================================================================
+
+        // Fire Data Engine (which now safely pulls parameters from the session)
+        xmlPublisher.dataEngine(reportName, dataFile, (Connection) oracleConnection, this.session);
+        bytes = xmlPublisher.processorEngine(reportFormat, templateFile, styleFile, reportName);
+        
+        HttpServletResponse response = (HttpServletResponse) FacesContext.getCurrentInstance()
+                                                                         .getExternalContext()
+                                                                         .getResponse();
+        response.reset();
+        response.resetBuffer();
+        ServletOutputStream servletOutputStream = response.getOutputStream();
+        
+        String filename = reportName;
+        String output = null;
+        if (reportFormat == null) {
+            if (this.session.getAttribute("reportformatprint") == null) {
+                output = filename + ".pdf";
+            } else {
+                output = filename + "." + (String) this.session.getAttribute("reportformatprint");
+            }
+        } else {
+            output = filename + "." + reportFormat;
+        }
+        
+        response.setContentType("application/octet-stream");
+        response.setHeader("Content-disposition", "attachment; filename=" + output + "");
+        response.setContentLength(bytes.length);
+        servletOutputStream.write(bytes, 0, bytes.length);
+        servletOutputStream.flush();
+        servletOutputStream.close();
+        
+        response.reset();
+        response.resetBuffer();
+        FacesContext.getCurrentInstance().responseComplete();
+        
+        rs.close();
+        cst.close();
+        oracleConnection.close();
+    } catch (Exception e) {
+        GlobalCC.EXCEPTIONREPORTING(e);
+        e.printStackTrace();
+    } finally {
+        // Clean up added parameter statement structures
+        DbUtils.closeQuietly(paramPst);
+        DbUtils.closeQuietly(paramRs);
+        
+        DbUtils.closeQuietly((Connection) oracleConnection, cst, rs);
+        if (rs != null) try { rs.close(); } catch (SQLException e) { e.printStackTrace(); }
+        if (cst != null) try { cst.close(); } catch (SQLException e) { e.printStackTrace(); }
+        if (oracleConnection != null) try { oracleConnection.close(); } catch (SQLException e) { e.printStackTrace(); }
+    }
+    return null;
+}
+
+// Helper stub: Replace this logic with your framework's actual front-end UI state evaluator
+private Object getViewParameterValue(String paramName) {
+    // E.g., return FacesContext.getCurrentInstance().getExternalContext().getRequestParameterMap().get(paramName);
+    return this.session.getAttribute(paramName); 
+}
